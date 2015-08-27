@@ -1,0 +1,214 @@
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <title>MiWiPi</title>
+
+    <!-- Bootstrap core CSS -->
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+<style>
+table.table { font-size: small; }
+#loading { font-size: 128px; margin-top:128px; }
+#ap_list, #ap_psk, #noneFound { display: none; }
+#btnJoinPSK, #btnScanAgain { width: 100%; }
+#ap_psk { margin-top: 24px; }
+#noneFound { margin-top: 100px; }
+#btnScanAgain { margin-top: 30px; }
+.glyphicon-refresh-animate {
+    -animation: spin .7s infinite linear;
+    -webkit-animation: spin2 .7s infinite linear;
+}
+
+@-webkit-keyframes spin2 {
+    from { -webkit-transform: rotate(0deg);}
+    to { -webkit-transform: rotate(360deg);}
+}
+
+@keyframes spin {
+    from { transform: scale(1) rotate(0deg);}
+    to { transform: scale(1) rotate(360deg);}
+}
+</style>
+
+  </head>
+
+  <body>
+
+    <div class="container">
+	<div class="row">
+		<div class="col-md-6 col-md-offset-3 col-xs-12">
+			<div id="ap_list">
+				<h3>Join a Network:</h3>
+				<table class="table table-hover">
+				<thead><tr><th>SSID</th><th>Signal</th><th><span class="glyphicon glyphicon-lock"></span></th></tr><thead>
+				<tbody>
+				</tbody>
+				</table>
+			</div>
+			
+			<div id="ap_psk">
+				<form>
+				<div class="form-group">
+					<button id="btnBackToList" type="button" class="btn btn-default"><span class="glyphicon glyphicon-chevron-left"></span> Back to List</button>
+				</div>
+				<div class="form-group">
+					<h3 id="pskSSID"></h3>
+					<p>This network requires a PSK or Pre Shared Key to join. Please enter it below.</p>
+				</div>
+				<div class="form-group">
+					<label for="psk">Passphrase</label>
+					<input type="password" class="form-control" id="psk">
+					<br/>
+					<label for="showpsk">Show Passphrase</label>
+					<input type="checkbox" id="showpsk">
+				</div>
+				<div class="form-group">
+					<button id="btnJoinPSK" type="button" class="btn btn-success">Join <span class="glyphicon glyphicon-ok-sign"></span></button>
+				</div>
+				</form>
+			</div>
+	
+			<div id="noneFound">
+				<h3>Son of a monkey sting!</h3>
+				<h4>We didn't find anything.</h4>
+				<button id="btnScanAgain" type="button" class="btn btn-success">Scan Again</button>
+			</div>
+
+			<div id="loading">
+				<center>
+					<span class="glyphicon glyphicon-refresh glyphicon-refresh-animate"></span>
+					<br/>
+					<h3 id="loading_msg">Searching for APs...</h3>
+				</center>
+			</div>
+		</div>
+	</div>
+
+
+    </div><!-- /.container -->
+
+
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="js/jquery.min.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+    <script>
+	toJoinSSID = '';
+	function join_ap(ssid){
+		$("#loading").show();
+		$("#loading_msg").html("Connecting...");
+		$("#ap_list").hide();
+		$.ajax({url: "join_ap.php?ssid=" + ssid }).done(function() { console.log("OK");} );
+		setTimeout(function() { checkNetwork(true); }, 5000);
+	}
+	function join_wpa(ssid){
+		$("#ap_list").hide();
+		$("#ap_psk").show();
+		$("#pskSSID").html(ssid);
+		$("#psk").focus();
+		toJoinSSID = ssid;
+	}
+	function back_to_list(){
+		$("#ap_list").show();
+		$("#ap_psk").hide();
+		$("#pskSSID").html("");
+		toJoinSSID = "";
+	}
+	function do_join_wpa(){
+		$("#ap_psk").hide();
+		$("#loading").show();
+		$("#loading_msg").html("Connecting...");
+		$.ajax({url: "join_ap.php?ssid=" + toJoinSSID + "&psk=" + $("#psk").val() }).done(function() { console.log("joining... " + "join_ap.php?ssid=" + toJoinSSID + "&psk=" + $("#psk").val()); console.log("OK");} );
+                setTimeout(function() { checkNetwork(true); }, 5000);
+	}
+	function checkNetwork(retry){
+		console.log("looking....");
+		try {
+		$.getJSON( "ipdisplay.php", function( data ) {
+			if(data[0].ip != null && data[0].ip != ""){
+				console.log("FOUND!");
+				$("#loading").hide();
+				$("#loading_msg").html("");
+				$("#ap_list").show();
+				$("#ap_list tr").removeClass("success");
+				$("#ap_list tr." + data[0].ssid).addClass("success");
+			} else if(retry) {
+				console.log("Not Found. Searching...");
+				setTimeout(function() { checkNetwork(true); } , 5000);
+			}
+		});
+		} catch (e) {
+			if(retry) {
+				console.log("Not Found. Searching...");
+				setTimeout(function() { checkNetwork(true); } , 5000);
+			}
+		}
+	}
+
+	function scanForAps(){
+		$("#loading").show();
+		$("#loading_msg").html("Scanning for APs...");
+		$("#ap_list").hide();
+		$.getJSON( "aps.php", function( data ) {
+ if(data == null || data == "" || data.length == 0 || data.length == 1){
+   $("#noneFound").show();
+   $("#loading").hide();
+   $("#loading_msg").html("");
+   return;
+ } 
+ $.each( data, function(i, item){
+  enc = item.encryption;
+  if(enc.indexOf("[ESS]") == 0){
+   enc = "";
+  } else if(enc.indexOf("WPA2") > -1){
+   enc = "<span class='glyphicon glyphicon-lock'></span>";
+  }
+  sig = item.strength.substring(1);
+  if(Number(sig) < 25){
+   strength = "||||||||";
+  } else if (Number(sig) < 50){
+   strength = "||||||";
+  } else if (Number(sig) < 75){
+   strength = "||||";
+  } else {
+   strength = "||";
+  }
+  if(item.ssid != null && item.ssid != ""){
+    if(enc.length > 0){
+      $("#ap_list tbody").append("<tr class='" + item.ssid + "'><td><a href='javascript:join_wpa(\"" + item.ssid + "\");'>" + item.ssid + "</a></td><td>" + strength + "</td><td>" + enc + "</td></tr>"); 
+    } else { 
+      $("#ap_list tbody").append("<tr class='" + item.ssid + "'><td><a href='javascript:join_ap(\"" + item.ssid + "\");'>" + item.ssid + "</a></td><td>" + strength + "</td><td>" + enc  + "</td></tr>"); 
+    }
+  } 
+ });
+ $("#loading").hide();
+ $("#loading_msg").html("");
+ $("#ap_list").show();
+ checkNetwork(false);
+});
+	}
+
+	$(document).ready(function(){
+		$("#btnJoinPSK").click(function( event ){ event.preventDefault(); do_join_wpa();});
+		$("#btnBackToList").click(function ( event ) { event.preventDefault(); back_to_list(); });
+		$("#btnScanAgain").click(function (event) { event.preventDefault(); document.location="/"; });
+		$("#showpsk").click(function( event ) {
+			if($("#showpsk:checked").length > 0){
+				$("#psk").attr("type","text");
+			} else {
+				$("#psk").attr("type","password");
+			}
+		});
+		scanForAps();
+	});
+    </script>
+  </body>
+</html>
+
+
