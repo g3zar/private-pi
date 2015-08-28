@@ -6,8 +6,7 @@ $aryJsonAps = array();
 
 $ip = array();
 $ip["ssid"] = $aps[0];
-$ip["ip"] = $aps[1];
+$ip["ip"] = (count($aps) > 1)?$aps[1]:"";
 array_push($aryJsonAps, $ip);
 echo json_encode($aryJsonAps);
-
 ?>
